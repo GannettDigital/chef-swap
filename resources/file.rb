@@ -15,13 +15,27 @@
 # limitations under the License.
 #
 
-# List of all actions supported by the provider
-actions :create, :remove
+property :path,    String, name_property: true
+property :size,    Integer
+property :persist, [true, false], default: false
+property :timeout, Integer, default: 600
+property :swappiness, Integer
 
-# Make create the default action
-default_action :create
+action :create do
+  do_create(swap_creation_command) unless swap_enabled?
 
-# Require attributes
-attribute :path,    kind_of: String, name_attribute: true
-attribute :size,    kind_of: Fixnum
-attribute :persist, kind_of: [TrueClass, FalseClass], default: false
+  if new_resource.swappiness
+    sysctl_param 'vm.swappiness' do
+      value new_resource.swappiness
+    end
+  end
+end
+
+action :remove do
+  swapoff if swap_enabled?
+  remove_swapfile if ::File.exist?(new_resource.path)
+end
+
+action_class do
+  include SwapCookbook::Helpers
+end
